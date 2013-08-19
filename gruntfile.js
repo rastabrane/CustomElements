@@ -34,6 +34,17 @@ module.exports = function(grunt) {
     }
   })();
   grunt.initConfig({
+    concat: {
+      CustomElements: {
+        options: {
+          stripBanners: true,
+          banner: grunt.file.read('LICENSE')
+        },
+        files: {
+          'custom-elements.debug.js': ['tools/loader/loader.js', CustomElements]
+        }
+      }
+    },
     karma: {
       options: {
         configFile: 'conf/karma.conf.js',
@@ -80,12 +91,14 @@ module.exports = function(grunt) {
   });
 
   // plugins
+  grunt.loadNpmTasks('grunt-contrib-concat');
   grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-yuidoc');
   grunt.loadNpmTasks('grunt-karma');
 
   // tasks
   grunt.registerTask('default', ['uglify']);
+  grunt.registerTask('debug', ['concat']);
   grunt.registerTask('minify', ['uglify']);
   grunt.registerTask('docs', ['yuidoc']);
   grunt.registerTask('test', ['karma:CustomElements']);

@@ -39,7 +39,7 @@ if (useNative) {
   // exports
   scope.registry = {};
   scope.upgradeElement = nop;
-  
+
   scope.watchShadow = nop;
   scope.watchAllShadows = nop;
   scope.upgrade = nop;
@@ -283,7 +283,7 @@ if (useNative) {
   function changeAttribute(name, value, operation) {
     var oldValue = this.getAttribute(name);
     operation.apply(this, arguments);
-    if (this.attributeChangedCallback 
+    if (this.attributeChangedCallback
         && (this.getAttribute(name) !== oldValue)) {
       this.attributeChangedCallback(name, oldValue);
     }
@@ -294,6 +294,9 @@ if (useNative) {
   var registry = {};
 
   function registerDefinition(inName, inDefinition) {
+    if (registry[inName]) {
+      throw new Error('Cannot register a tag more than once');
+    }
     registry[inName] = inDefinition;
   }
 
@@ -347,7 +350,7 @@ if (useNative) {
 
   /**
    * Upgrade an element to a custom element. Upgrading an element
-   * causes the custom prototype to be applied, an `is` attribute 
+   * causes the custom prototype to be applied, an `is` attribute
    * to be attached (as needed), and invocation of the `readyCallback`.
    * `upgrade` does nothing if the element is already upgraded, or
    * if it matches no registered custom tag name.
