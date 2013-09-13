@@ -25,13 +25,10 @@ var flags = scope.flags;
 
 // native document.register?
 
-var hasNative = Boolean(document.webkitRegister || document.register);
+var hasNative = Boolean(document.register);
 var useNative = !flags.register && hasNative;
 
 if (useNative) {
-
-  // normalize
-  document.register = document.register || document.webkitRegister;
 
   // stub
   var nop = function() {};
@@ -41,7 +38,6 @@ if (useNative) {
   scope.upgradeElement = nop;
 
   scope.watchShadow = nop;
-  scope.watchAllShadows = nop;
   scope.upgrade = nop;
   scope.upgradeAll = nop;
   scope.upgradeSubtree = nop;
@@ -102,7 +98,7 @@ if (useNative) {
     if (name.indexOf('-') < 0) {
       // TODO(sjmiles): replace with more appropriate error (EricB can probably
       // offer guidance)
-      throw new Error('document.register: first argument `name` must contain a dash (\'-\'). Argument was \'' + String(name) + '\'.');
+      throw new Error('document.register: first argument (\'name\') must contain a dash (\'-\'). Argument provided was \'' + String(name) + '\'.');
     }
     // record name
     definition.name = name;
@@ -173,11 +169,11 @@ if (useNative) {
     // prototype for precise mixing in
     if (!Object.__proto__) {
       // default prototype
-      var native = HTMLElement.prototype;
+      var nativePrototype = HTMLElement.prototype;
       // work out prototype when using type-extension
       if (definition.is) {
         var inst = document.createElement(definition.tag);
-        native = Object.getPrototypeOf(inst);
+        nativePrototype = Object.getPrototypeOf(inst);
       }
       // ensure __proto__ reference is installed at each point on the prototype
       // chain.
@@ -185,14 +181,14 @@ if (useNative) {
       // of prototype swizzling. In this case, this generated __proto__ provides
       // limited support for prototype traversal.
       var proto = definition.prototype, ancestor;
-      while (proto && (proto !== native)) {
+      while (proto && (proto !== nativePrototype)) {
         var ancestor = Object.getPrototypeOf(proto);
         proto.__proto__ = ancestor;
         proto = ancestor;
       }
     }
     // cache this in case of mixin
-    definition.native = native;
+    definition.native = nativePrototype;
   }
 
   // SECTION 4
