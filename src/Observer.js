@@ -6,19 +6,11 @@ license that can be found in the LICENSE file.
 
 (function(scope){
 
-/*
-if (HTMLElement.prototype.webkitShadowRoot) {
-  Object.defineProperty(HTMLElement.prototype, 'shadowRoot', {
-    get: function() {
-      return this.webkitShadowRoot;
-    }
-  };
-}
-*/
+var logFlags = window.logFlags || {};
 
-// walk the subtree rooted at node, applying 'find(element, data)' function 
+// walk the subtree rooted at node, applying 'find(element, data)' function
 // to each element
-// if 'find' returns true for 'element', do not search element's subtree  
+// if 'find' returns true for 'element', do not search element's subtree
 function findAll(node, find, data) {
   var e = node.firstElementChild;
   if (!e) {
@@ -45,7 +37,7 @@ function forRoots(node, cb) {
   }
 }
 
-// walk the subtree rooted at node, including descent into shadow-roots, 
+// walk the subtree rooted at node, including descent into shadow-roots,
 // applying 'cb' to each element
 function forSubtree(node, cb) {
   //logFlags.dom && node.childNodes && node.childNodes.length && console.group('subTree: ', node);
@@ -63,7 +55,7 @@ function forSubtree(node, cb) {
 function added(node) {
   if (upgrade(node)) {
     insertedNode(node);
-    return true; 
+    return true;
   }
   inserted(node);
 }
@@ -72,7 +64,7 @@ function added(node) {
 function addedSubtree(node) {
   forSubtree(node, function(e) {
     if (added(e)) {
-      return true; 
+      return true;
     }
   });
 }
@@ -118,7 +110,7 @@ function inserted(element) {
   // TODO(sjmiles): when logging, do work on all custom elements so we can
   // track behavior even when callbacks not defined
   //console.log('inserted: ', element.localName);
-  if (element.enteredDocumentCallback || (element.__upgraded__ && logFlags.dom)) {
+  if (element.enteredViewCallback || (element.__upgraded__ && logFlags.dom)) {
     logFlags.dom && console.group('inserted:', element.localName);
     if (inDocument(element)) {
       element.__inserted = (element.__inserted || 0) + 1;
@@ -130,9 +122,9 @@ function inserted(element) {
       if (element.__inserted > 1) {
         logFlags.dom && console.warn('inserted:', element.localName,
           'insert/remove count:', element.__inserted)
-      } else if (element.enteredDocumentCallback) {
+      } else if (element.enteredViewCallback) {
         logFlags.dom && console.log('inserted:', element.localName);
-        element.enteredDocumentCallback();
+        element.enteredViewCallback();
       }
     }
     logFlags.dom && console.groupEnd();
@@ -149,7 +141,7 @@ function removedNode(node) {
 function removed(element) {
   // TODO(sjmiles): temporary: do work on all custom elements so we can track
   // behavior even when callbacks not defined
-  if (element.leftDocumentCallback || (element.__upgraded__ && logFlags.dom)) {
+  if (element.leftViewCallback || (element.__upgraded__ && logFlags.dom)) {
     logFlags.dom && console.log('removed:', element.localName);
     if (!inDocument(element)) {
       element.__inserted = (element.__inserted || 0) - 1;
@@ -161,8 +153,8 @@ function removed(element) {
       if (element.__inserted < 0) {
         logFlags.dom && console.warn('removed:', element.localName,
             'insert/remove count:', element.__inserted)
-      } else if (element.leftDocumentCallback) {
-        element.leftDocumentCallback();
+      } else if (element.leftViewCallback) {
+        element.leftViewCallback();
       }
     }
   }
@@ -170,8 +162,10 @@ function removed(element) {
 
 function inDocument(element) {
   var p = element;
+  var doc = window.ShadowDOMPolyfill &&
+      window.ShadowDOMPolyfill.wrapIfNeeded(document) || document;
   while (p) {
-    if (p == element.ownerDocument) {
+    if (p == doc) {
       return true;
     }
     p = p.parentNode || p.host;
@@ -195,13 +189,6 @@ function watchRoot(root) {
     observe(root);
     root.__watched = true;
   }
-}
-
-function watchAllShadows(node) {
-  watchShadow(node);
-  forSubtree(node, function(e) {
-    watchShadow(node);
-  });
 }
 
 function filter(inNode) {
@@ -239,11 +226,6 @@ function handler(mutations) {
         if (filter(n)) {
           return;
         }
-        // watch shadow-roots on nodes that have had them attached manually
-        // TODO(sjmiles): remove if createShadowRoot is overridden
-        // TODO(sjmiles): removed as an optimization, manual shadow roots
-        // must be watched explicitly
-        //watchAllShadows(n);
         // nodes added may need lifecycle management
         addedNode(n);
       });
@@ -287,8 +269,6 @@ function upgradeDocument(document) {
 // exports
 
 scope.watchShadow = watchShadow;
-scope.watchAllShadows = watchAllShadows;
-
 scope.upgradeAll = addedNode;
 scope.upgradeSubtree = addedSubtree;
 

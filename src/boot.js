@@ -6,14 +6,16 @@
 (function(){
 
 // bootstrap parsing
-
 function bootstrap() {
-  // go async so call stack can unwind
-  setTimeout(function() {
-    // parse document
-    CustomElements.parser.parse(document);
-    // one more pass before register is 'live'
-    CustomElements.upgradeDocument(document);  
+  // parse document
+  CustomElements.parser.parse(document);
+  // one more pass before register is 'live'
+  CustomElements.upgradeDocument(document);  
+  // choose async
+  var async = window.Platform && Platform.endOfMicrotask ? 
+    Platform.endOfMicrotask :
+    setTimeout;
+  async(function() {
     // set internal 'ready' flag, now document.register will trigger 
     // synchronous upgrades
     CustomElements.ready = true;
@@ -26,7 +28,7 @@ function bootstrap() {
     document.body.dispatchEvent(
       new CustomEvent('WebComponentsReady', {bubbles: true})
     );
-  }, 0);
+  });
 }
 
 // CustomEvent shim for IE
