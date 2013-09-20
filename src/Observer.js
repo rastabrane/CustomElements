@@ -6,19 +6,11 @@ license that can be found in the LICENSE file.
 
 (function(scope){
 
-/*
-if (HTMLElement.prototype.webkitShadowRoot) {
-  Object.defineProperty(HTMLElement.prototype, 'shadowRoot', {
-    get: function() {
-      return this.webkitShadowRoot;
-    }
-  };
-}
-*/
+var logFlags = window.logFlags || {};
 
-// walk the subtree rooted at node, applying 'find(element, data)' function 
+// walk the subtree rooted at node, applying 'find(element, data)' function
 // to each element
-// if 'find' returns true for 'element', do not search element's subtree  
+// if 'find' returns true for 'element', do not search element's subtree
 function findAll(node, find, data) {
   var e = node.firstElementChild;
   if (!e) {
@@ -38,14 +30,14 @@ function findAll(node, find, data) {
 
 // walk all shadowRoots on a given node.
 function forRoots(node, cb) {
-  var root = node.webkitShadowRoot;
+  var root = node.shadowRoot;
   while(root) {
     forSubtree(root, cb);
     root = root.olderShadowRoot;
   }
 }
 
-// walk the subtree rooted at node, including descent into shadow-roots, 
+// walk the subtree rooted at node, including descent into shadow-roots,
 // applying 'cb' to each element
 function forSubtree(node, cb) {
   //logFlags.dom && node.childNodes && node.childNodes.length && console.group('subTree: ', node);
@@ -63,7 +55,7 @@ function forSubtree(node, cb) {
 function added(node) {
   if (upgrade(node)) {
     insertedNode(node);
-    return true; 
+    return true;
   }
   inserted(node);
 }
@@ -72,7 +64,7 @@ function added(node) {
 function addedSubtree(node) {
   forSubtree(node, function(e) {
     if (added(e)) {
-      return true; 
+      return true;
     }
   });
 }
@@ -105,9 +97,50 @@ function insertedNode(node) {
   }
 }
 
-// TODO(sjmiles): if there are descents into trees that can never have inDocument(*) true, fix this
+
+// TODO(sorvell): on platforms without MutationObserver, mutations may not be 
+// reliable and therefore entered/leftView are not reliable.
+// To make these callbacks less likely to fail, we defer all inserts and removes
+// to give a chance for elements to be inserted into dom. 
+// This ensures enteredViewCallback fires for elements that are created and 
+// immediately added to dom.
+var hasPolyfillMutations = (!window.MutationObserver ||
+    (window.MutationObserver === window.JsMutationObserver));
+scope.hasPolyfillMutations = hasPolyfillMutations;
+
+var isPendingMutations = false;
+var pendingMutations = [];
+function deferMutation(fn) {
+  pendingMutations.push(fn);
+  if (!isPendingMutations) {
+    isPendingMutations = true;
+    var async = (window.Platform && window.Platform.endOfMicrotask) ||
+        setTimeout;
+    async(takeMutations);
+  }
+}
+
+function takeMutations() {
+  isPendingMutations = false;
+  var $p = pendingMutations;
+  for (var i=0, l=$p.length, p; (i<l) && (p=$p[i]); i++) {
+    p();
+  }
+  pendingMutations = [];
+}
 
 function inserted(element) {
+  if (hasPolyfillMutations) {
+    deferMutation(function() {
+      _inserted(element);
+    });
+  } else {
+    _inserted(element);
+  }
+}
+
+// TODO(sjmiles): if there are descents into trees that can never have inDocument(*) true, fix this
+function _inserted(element) {
   // TODO(sjmiles): it's possible we were inserted and removed in the space
   // of one microtask, in which case we won't be 'inDocument' here
   // But there are other cases where we are testing for inserted without
@@ -118,7 +151,7 @@ function inserted(element) {
   // TODO(sjmiles): when logging, do work on all custom elements so we can
   // track behavior even when callbacks not defined
   //console.log('inserted: ', element.localName);
-  if (element.enteredDocumentCallback || (element.__upgraded__ && logFlags.dom)) {
+  if (element.enteredViewCallback || (element.__upgraded__ && logFlags.dom)) {
     logFlags.dom && console.group('inserted:', element.localName);
     if (inDocument(element)) {
       element.__inserted = (element.__inserted || 0) + 1;
@@ -130,9 +163,9 @@ function inserted(element) {
       if (element.__inserted > 1) {
         logFlags.dom && console.warn('inserted:', element.localName,
           'insert/remove count:', element.__inserted)
-      } else if (element.enteredDocumentCallback) {
+      } else if (element.enteredViewCallback) {
         logFlags.dom && console.log('inserted:', element.localName);
-        element.enteredDocumentCallback();
+        element.enteredViewCallback();
       }
     }
     logFlags.dom && console.groupEnd();
@@ -146,10 +179,21 @@ function removedNode(node) {
   });
 }
 
+
+function removed(element) {
+  if (hasPolyfillMutations) {
+    deferMutation(function() {
+      _removed(element);
+    });
+  } else {
+    _removed(element);
+  }
+}
+
 function removed(element) {
   // TODO(sjmiles): temporary: do work on all custom elements so we can track
   // behavior even when callbacks not defined
-  if (element.leftDocumentCallback || (element.__upgraded__ && logFlags.dom)) {
+  if (element.leftViewCallback || (element.__upgraded__ && logFlags.dom)) {
     logFlags.dom && console.log('removed:', element.localName);
     if (!inDocument(element)) {
       element.__inserted = (element.__inserted || 0) - 1;
@@ -161,8 +205,8 @@ function removed(element) {
       if (element.__inserted < 0) {
         logFlags.dom && console.warn('removed:', element.localName,
             'insert/remove count:', element.__inserted)
-      } else if (element.leftDocumentCallback) {
-        element.leftDocumentCallback();
+      } else if (element.leftViewCallback) {
+        element.leftViewCallback();
       }
     }
   }
@@ -170,8 +214,10 @@ function removed(element) {
 
 function inDocument(element) {
   var p = element;
+  var doc = window.ShadowDOMPolyfill &&
+      window.ShadowDOMPolyfill.wrapIfNeeded(document) || document;
   while (p) {
-    if (p == element.ownerDocument) {
+    if (p == doc) {
       return true;
     }
     p = p.parentNode || p.host;
@@ -179,10 +225,10 @@ function inDocument(element) {
 }
 
 function watchShadow(node) {
-  if (node.webkitShadowRoot && !node.webkitShadowRoot.__watched) {
+  if (node.shadowRoot && !node.shadowRoot.__watched) {
     logFlags.dom && console.log('watching shadow-root for: ', node.localName);
     // watch all unwatched roots...
-    var root = node.webkitShadowRoot;
+    var root = node.shadowRoot;
     while (root) {
       watchRoot(root);
       root = root.olderShadowRoot;
@@ -195,13 +241,6 @@ function watchRoot(root) {
     observe(root);
     root.__watched = true;
   }
-}
-
-function watchAllShadows(node) {
-  watchShadow(node);
-  forSubtree(node, function(e) {
-    watchShadow(node);
-  });
 }
 
 function filter(inNode) {
@@ -239,11 +278,6 @@ function handler(mutations) {
         if (filter(n)) {
           return;
         }
-        // watch shadow-roots on nodes that have had them attached manually
-        // TODO(sjmiles): remove if createShadowRoot is overridden
-        // TODO(sjmiles): removed as an optimization, manual shadow roots
-        // must be watched explicitly
-        //watchAllShadows(n);
         // nodes added may need lifecycle management
         addedNode(n);
       });
@@ -266,6 +300,7 @@ var observer = new MutationObserver(handler);
 function takeRecords() {
   // TODO(sjmiles): ask Raf why we have to call handler ourselves
   handler(observer.takeRecords());
+  takeMutations();
 }
 
 var forEach = Array.prototype.forEach.call.bind(Array.prototype.forEach);
@@ -287,8 +322,6 @@ function upgradeDocument(document) {
 // exports
 
 scope.watchShadow = watchShadow;
-scope.watchAllShadows = watchAllShadows;
-
 scope.upgradeAll = addedNode;
 scope.upgradeSubtree = addedSubtree;
 

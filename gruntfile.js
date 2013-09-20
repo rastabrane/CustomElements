@@ -4,35 +4,7 @@
  * license that can be found in the LICENSE file.
  */
 module.exports = function(grunt) {
-  var os = require('os');
-  var browsers = ['Chrome', 'Firefox'];
-  if (os.type() === 'Darwin') {
-    browsers.push('ChromeCanary');
-  }
-  if (os.type() === 'Windows_NT') {
-    browsers.push('IE');
-  }
   CustomElements = grunt.file.readJSON('build.json');
-  // karma setup
-  var browsers;
-  (function() {
-    try {
-      var config = grunt.file.readJSON('local.json');
-      if (config.browsers) {
-        browsers = config.browsers;
-      }
-    } catch (e) {
-      var os = require('os');
-      browsers = ['Chrome', 'Firefox'];
-      //browsers = ['Chrome'];
-      if (os.type() === 'Darwin') {
-        browsers.push('ChromeCanary');
-      }
-      if (os.type() === 'Windows_NT') {
-        browsers.push('IE');
-      }
-    }
-  })();
   grunt.initConfig({
     concat: {
       CustomElements: {
@@ -48,16 +20,13 @@ module.exports = function(grunt) {
     karma: {
       options: {
         configFile: 'conf/karma.conf.js',
-        keepalive: true,
-        browsers: browsers
+        keepalive: true
       },
       buildbot: {
-        browsers: browsers,
         reporters: ['crbot'],
         logLevel: 'OFF'
       },
       CustomElements: {
-        browsers: browsers
       }
     },
     uglify: {
@@ -83,7 +52,7 @@ module.exports = function(grunt) {
           outdir: 'docs',
           linkNatives: 'true',
           tabtospace: 2,
-          themedir: '../docs/doc_themes/simple'
+          themedir: '../tools/doc/themes/polymerase'
         }
       }
     },

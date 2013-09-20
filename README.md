@@ -17,49 +17,7 @@ As with any element, custom elements can be created in JavaScript or declared.
 
 #### Element registration
 
-Before you can use a custom element, it needs to be registered using one of the following
-methods. Otherwise, the browser considers it an <code>HTMLUnknownElement</code>.
-
-##### &lt;element&gt;
-
-The `<element>` tag provides a mechanism to encapsulate HTML, CSS, and JavaScript into reusable, encapsulated components.
-
-    <element name="x-foo" constructor="XFoo">
-      <section>
-        I'm an x-foo!
-      </section>
-      <script>
-        // When <element> is in document, we might run in wrong context.
-        // Only do work when this == <element>.
-        if (this !== window) {
-          var section = this.querySelector('section');
-
-          // Has built-in 'window' protection.
-          this.register({
-            prototype: {
-              createdCallback: function() {
-                this.innerHTML = section.innerHTML;
-              },
-              foo: function() {
-                console.log('foo() called');
-              }
-            }
-         });
-        }
-      </script>
-    </element>
-
-The `constructor` attribute name goes on global scope and can be used to construct the element in JavaScript.
-
-**Extending existing elements**
-
-Using `<element>`, the prototype must be a simple object, but the `extends` attribute
-can be used to extend existing DOM elements. The system chains the correct prototype
-based the value of this attribute.
-  
-Example of extending `button`:
-
-    <element name="x-foo" extends="button">
+Before you can use a custom element, it needs to be registered. Otherwise, the browser considers it an <code>HTMLElement</code>.
 
 ##### document.register()
 
@@ -136,8 +94,8 @@ Use the minified version (`custom-elements.min.js`) if you need to load the file
 
 ### Polyfill Notes
 
-The polyfill parses `<element>` tags and handles element upgrades _asynchronously_. To know when the polyfill has
-finished all start up tasks, listen to the `WebComponentsReady` event on `document` or `window`.
+The polyfill handles element upgrades _asynchronously_. To know when it has
+finished all of its start up tasks, listen to the `WebComponentsReady` event on `document` or `window`.
 
 Example:
 
@@ -150,11 +108,11 @@ Example:
       });
     </script>
 
-The Custom Elements specification is still under discussion. The polyfill implements certain features in advance of the specification. In particular, there are several notification callback methods that are used if implemented on the element prototype.
+The Custom Elements specification is still under discussion. The polyfill implements certain features in advance of the specification. In particular, the lifecycle callback methods that get called if implemented on the element prototype:
 
 * `createdCallback()` is called when a custom element is created.
-* `enteredDocumentCallback()` is called when a custom element is inserted into a DOM subtree.
-* `leftDocumentCallback()` is called when a custom element is removed from a DOM subtree.
+* `enteredViewCallback()` is called when a custom element is inserted into a DOM subtree.
+* `leftViewCallback()` is called when a custom element is removed from a DOM subtree.
 * `attributeChangedCallback(attributeName)` is called when a custom element's attribute value has changed
 
 `createdCallback` is invoked _synchronously_ with element instantiation, the other callbacks are called _asyncronously_. The asynchronous callbacks generally use the MutationObserver timing model, which means they are called before layouts, paints, or other triggered events, so the developer need not worry about flashing content or other bad things happening before the callback has a chance to react to changes.
