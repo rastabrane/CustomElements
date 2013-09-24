@@ -308,20 +308,41 @@ if (useNative) {
   }
 
   function createElement(tag, typeExtension) {
-    // TODO(sjmiles): ignore 'tag' when using 'typeExtension', we could
-    // error check it, or perhaps there should only ever be one argument
     var definition = registry[typeExtension || tag];
     if (definition) {
-      return new definition.ctor();
+      if (tag == definition.tag && typeExtension == definition.is) {
+        return new definition.ctor();
+      }
+      // Handle empty string for type extension.
+      if (!typeExtension && !definition.is) {
+        return new definition.ctor();
+      }
     }
-    return domCreateElement(tag);
+
+    if (typeExtension) {
+      var element = createElement(tag);
+      element.setAttribute('is', typeExtension);
+      return element;
+    }
+    var element = domCreateElement(tag);
+    // Custom tags should be HTMLElements even if not upgraded.
+    if (tag.indexOf('-') >= 0) {
+      implement(element, HTMLElement);
+    }
+    return element;
   }
 
   function upgradeElement(element) {
     if (!element.__upgraded__ && (element.nodeType === Node.ELEMENT_NODE)) {
-      var type = element.getAttribute('is') || element.localName;
-      var definition = registry[type];
-      return definition && upgrade(element, definition);
+      var is = element.getAttribute('is');
+      var definition = registry[is || element.localName];
+      if (definition) {
+        if (is && definition.tag == element.localName) {
+          return upgrade(element, definition);
+        } else if (!is && !definition.extends) {
+          return upgrade(element, definition);
+        }
+      }
     }
   }
 
